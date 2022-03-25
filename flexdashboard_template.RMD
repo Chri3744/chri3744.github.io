@@ -62,7 +62,7 @@ Column {data-width=2000}
 
 ### Chart A
 
-```{r echo = FALSE, fig.height=20}
+```{r echo = FALSE, fig.height=60}
 aisle_stats.df <- instacart.df %>%
   group_by(aisle) %>%
   summarise(n_orders = n_distinct(order_id)) %>% ###
@@ -93,7 +93,7 @@ Column {data-width=2000}
 
 ### Chart B
 
-``` {r error = FALSE, warning = FALSE, message = FALSE, echo = FALSE, fig.height = 10, fig.width = 50}
+``` {r error = FALSE, warning = FALSE, message = FALSE, echo = FALSE, fig.height = 30, fig.width = 50}
 top_department <- instacart.df %>%
   group_by(department) %>%
   summarise(n_department = n()) %>%
@@ -139,7 +139,7 @@ ggplotly(top_aisle.gg, tooltip = "text")
 
 ### Chart C
 
-```{r echo = FALSE}
+```{r error = FALSE, warning = FALSE, message = FALSE, echo = FALSE, fig.height = 15, fig.width = 50}
 #Clean data and establish as factor or numeric
 smart.df <- as_tibble(smart.df) %>%
   janitor::clean_names() %>%
