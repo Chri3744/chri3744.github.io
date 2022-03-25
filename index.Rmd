@@ -1,21 +1,21 @@
 ---
-title: "Your Name"
+title: "Taylor Christian"
 ---
 
 <div style= "float : left; position : relative; top: 0px; width : 450px; height : 360px; padding-right: 24px; margin-bottom : 0px">
-![Your Photo](./path_to_photo)
+![Taylor Christian, 2017](./professional_photo.jpg)
 
 </div>
 
 <font size = "4"> 
-*You Bio Here*  
+Biological Lab Researcher with 7 years experience.  
 </font>  
   
   
   
 <font size = "4">
-*Paragraph 2*  
+Works include organic chemistry ligand development for antibody aggregate filtration, SERS UV-vis aflatoxin detection systems, and molecular biology for LAMP-BART PCR detection of food-borne pathogens.
 </font>
 
->"A quote" - Somebody
+>"Our world is built on biology, once we begin to understand it, it then becomes a technology." - Ryan Bethencourt
 

@@ -9,9 +9,17 @@ navbar:
     - text: "About"
       href: about.html
     - icon: fa-envelope fa-lg
-      href: mailto:<nevil066@umn.edu>
+      href: mailto:<chri3744@umn.edu>
     - icon: fa-github fa-lg
-      href: http://github.com/nevilleq/
+      href: https://github.com/Chri3744
+    - icon: fa-linkedin
+      href: https://www.linkedin.com/in/taylor-christian-92b51a169/
+    - text: "Professional Documents"
+      icon: fa-address-card
+      menu:
+        - text: "Resume"
+          href: resume.html
 output:  
    html_document:
     theme: flatly
+    
