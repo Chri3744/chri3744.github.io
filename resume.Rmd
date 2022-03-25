@@ -1,0 +1,12 @@
+---
+title: "resume"
+author: "Taylor Christian"
+date: "3/25/2022"
+output: html_document
+---
+
+```{r echo=FALSE}
+# Resume embed
+xfun::embed_file('Resume.doc')
+
+```
