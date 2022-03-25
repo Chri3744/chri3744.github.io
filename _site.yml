@@ -19,6 +19,11 @@ navbar:
       menu:
         - text: "Resume"
           href: resume.html
+    - text: "Recent Work"
+      icon: fa-briefcase
+      menu:
+        - text: "Flexdashboard"
+          href: flexdashboard_template.html
 output:  
    html_document:
     theme: flatly

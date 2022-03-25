@@ -1,0 +1,187 @@
+---
+title: "Homework 5"
+author: "Taylor Christian"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include = FALSE, echo = FALSE}
+library(tidyverse)
+library(lubridate)
+library(gt)
+library(paletteer)
+library(plotly)
+library(flexdashboard)
+
+#Working directory for .RMD
+knitr::opts_knit$set(echo = TRUE,
+                     root.dir = rprojroot::find_rstudio_root_file())
+
+#Controlling figure output in markdown
+knitr::opts_chunk$set(
+#  fig.height =   
+  fig.width = 6,
+#  fig.asp = .5,
+  out.width = "90%",
+#  out.height = 
+ fig.align  = "center",
+  cache = FALSE,
+  eval  = TRUE,
+  echo  = TRUE,
+  warning = FALSE
+)
+
+#My Colours (from viridis)
+my_purple <- "#440154FF"
+my_yellow <- "#FDE725FF"
+
+#Set Theme for ggplot2
+theme_set(theme_bw() + theme(plot.title = element_text(hjust = 0.5), legend.position = "bottom"))
+
+#Set Scientific notation output and decimal places for knitr
+options(scipen = 999)
+options(digits = 4)
+options(dplyr.summarise.inform = FALSE)
+```
+
+
+```{r data_read, echo = FALSE}
+#Import instacart data and clean names
+instacart.df <- 
+  as_tibble(read.csv("./data/instacart.csv")) %>%
+  janitor::clean_names()
+
+#Import smart data
+smart.df <- read_csv("./data/brfss_smart_2010.csv", show_col_types = FALSE)
+```
+
+Column {data-width=2000}
+-----------------------------------------------------------------------
+
+### Chart A
+
+```{r echo = FALSE, fig.height=20}
+aisle_stats.df <- instacart.df %>%
+  group_by(aisle) %>%
+  summarise(n_orders = n_distinct(order_id)) %>% ###
+  mutate(aisle = str_to_title(aisle),
+         aisle = as.factor(aisle),
+         aisle = fct_reorder(aisle, n_orders)) %>%
+    arrange(desc(n_orders))
+
+aisle_stats.gg <- aisle_stats.df %>%
+  ggplot(aes(x = n_orders, y = aisle, fill = n_orders)) +
+  geom_col() +
+  scale_fill_viridis_c() +
+  labs(x = "Number of Orders, Descending", y = "Aisle",
+      title = "Instacart Orders per Aisle") +
+  theme(
+    plot.title = element_text(face = "bold", size = 20),
+    legend.title = element_text(face = "bold"),
+    legend.position = c(.8,.93),
+    legend.background = element_blank(),
+    panel.background = element_blank()
+    )
+
+ggplotly(aisle_stats.gg, tooltip = "text")
+```
+
+Column {data-width=2000}
+-----------------------------------------------------------------------
+
+### Chart B
+
+``` {r error = FALSE, warning = FALSE, message = FALSE, echo = FALSE, fig.height = 10, fig.width = 50}
+top_department <- instacart.df %>%
+  group_by(department) %>%
+  summarise(n_department = n()) %>%
+  arrange(desc(n_department)) %>%
+  slice(1:6) %>%
+  ungroup()
+
+top_aisle <- instacart.df %>%
+  filter(department %in% top_department$department) %>%
+  group_by(department, aisle) %>%
+  summarise(n_aisle = n()) %>%
+  arrange(desc(n_aisle)) %>%
+  group_by(department) %>%
+  slice(1:6) %>%
+  ungroup() %>%
+  mutate(department = str_to_title(department) %>%
+           as.factor() %>%
+           fct_reorder(n_aisle, .desc = TRUE),
+         aisle = str_to_title(aisle) %>%
+           as.factor() %>%
+           fct_reorder2(department, n_aisle, .desc = TRUE)) %>%
+  arrange(desc(n_aisle))
+
+
+top_aisle.gg <- top_aisle %>%
+  ggplot(aes(x = n_aisle, y = aisle, fill = department)) +
+  geom_col() +
+  facet_wrap(vars(department), scales = "free_x") +
+  labs(x = "Count", y = "Aisle",
+       title = "Items Purchased in the Top 6 Aisles of the Top 6 Departments", fill = "Department") +
+  theme(
+    plot.title = element_text("bold", size = 20),
+    legend.position = c(.9,.9),
+    legend.title = element_text("bold", size = 15),
+    legend.text = element_text(size = 8),
+    axis.title = element_text(size = 15),
+    axis.text =  element_text(size = 8),
+    strip.text = element_text(size = 15)
+  )
+
+ggplotly(top_aisle.gg, tooltip = "text")
+```  
+
+### Chart C
+
+```{r echo = FALSE}
+#Clean data and establish as factor or numeric
+smart.df <- as_tibble(smart.df) %>%
+  janitor::clean_names() %>%
+  filter(topic == "Overall Health") %>%
+  rename(state = locationabbr, prop_responses = data_value, county = locationdesc) %>%
+  mutate(
+    county = substring(county, 6),
+    county = str_remove(county, " County"),
+    year = year %>%
+      as.character() %>%
+      as.numeric(),
+    state = as.factor(state),
+    county = as.factor(county),
+    response = as.factor(response),
+    sample_size = as.numeric(sample_size),
+    prop_responses = as.numeric(prop_responses)
+  ) %>%
+#Select relevant columns  
+  select(year, state, county, response, sample_size, prop_responses)
+
+smart.df %>%
+  #Pull distinct state/county combinations for each year
+  distinct(year, state, county) %>%
+  #Group by year and state
+  group_by(year, state) %>%
+  #Count number of counties per state per year
+  summarise(distinct_counties = n()) %>%
+  #Order states by their mean number of distinct counties (seems to not be working?)
+  mutate(
+    State = fct_reorder(state, distinct_counties, .fun = mean, .desc = TRUE)
+    ) %>%
+  plot_ly(
+    x = ~year,
+    y = ~distinct_counties,
+    type = "scatter",
+    mode = "line",
+    color = ~State
+  ) %>%
+  layout(
+    title = "Distinct Counties Per Year by State",
+    xaxis = list(title = "Distinct Counties"),
+    yaxis = list(title = "Year")
+  )
+```
+
