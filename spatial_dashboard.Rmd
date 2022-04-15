@@ -1,0 +1,304 @@
+---
+title: "Homework 5"
+author: "Taylor Christian"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include = FALSE, echo = FALSE, message = FALSE}
+library(tidyverse)
+library(lubridate)
+library(gt)
+library(paletteer)
+library(plotly)
+library(flexdashboard)
+library(sf)
+library(ggmap)
+library(tidycensus)
+library(leaflet)
+library(osmdata)
+library(tigris)
+library(ggthemes)
+library(viridis)
+library(htmltools)
+library(tidycensus)
+
+
+
+#Working directory for .RMD
+knitr::opts_knit$set(echo = TRUE,
+                     root.dir = rprojroot::find_rstudio_root_file())
+
+#Controlling figure output in markdown
+knitr::opts_chunk$set(
+#  fig.height =   
+  fig.width = 6,
+#  fig.asp = .5,
+  out.width = "90%",
+#  out.height = 
+ fig.align  = "center",
+  cache = FALSE,
+  eval  = TRUE,
+  echo  = TRUE,
+  warning = FALSE
+)
+
+#My Colours (from viridis)
+my_purple <- "#440154FF"
+my_yellow <- "#FDE725FF"
+
+#Set Theme for ggplot2
+theme_set(theme_bw() + theme(plot.title = element_text(hjust = 0.5), legend.position = "bottom"))
+
+#Set Scientific notation output and decimal places for knitr
+options(scipen = 999)
+options(digits = 4)
+options(dplyr.summarise.inform = FALSE)
+```
+
+
+
+```{r, echo = FALSE, message = FALSE}
+#Build bounding boxes
+mn.box <- osmdata::getbb("minnesota")
+hennepin.box <- osmdata::getbb("hennepin")
+
+mn.outline <- osmdata::getbb("minnesota", format_out = "polygon")[[1]] %>%
+  as_tibble() %>%
+  rename(longitude = V1, latitude = V2)
+
+hennepin.outline <- osmdata::getbb("hennepin", format_out = "polygon")[[1]] %>%
+  as_tibble() %>%
+  rename(longitude = V1, latitude = V2)
+
+#Build foundational layer map for minnesota
+mn_base.map <- get_map(
+    location = mn.box,
+    source = "google",
+    maptype = "roadmap",
+    crop = TRUE
+)
+
+#Build foundational layer map for hennepin
+hennepin_base.map <- get_map(
+    location = hennepin.box,
+    source = "google",
+    maptype = "roadmap",
+    crop = TRUE
+)
+
+
+#Create base map for minnesota
+mn_base.gg <- ggmap(mn_base.map) +
+  geom_polygon(data = mn.outline, aes(x = longitude, y = latitude), colour = "black", size = 1.6, alpha = 0.1) +
+  theme_map() +
+  theme(
+    plot.title = element_text(size = 16,
+                              hjust = 0.5),
+    legend.text = element_text(size = 16),
+    legend.title = element_text(size = 16),
+    legend.position = "right"
+  )
+
+#Create base map for hennepin
+hennepin_base.gg <- ggmap(hennepin_base.map) +
+  geom_polygon(data = hennepin.outline, aes(x = longitude, y = latitude), colour = "black", size = 1.6, alpha = 0.1) +
+  theme_map() +
+  theme(
+    plot.title = element_text(size = 16,
+                              hjust = 0.5),
+    legend.text = element_text(size = 16),
+    legend.title = element_text(size = 16),
+    legend.position = "right"
+  )
+```
+
+
+```{r, echo = FALSE, message = FALSE}
+#Import osm data for our desired shop types for figure 1.2
+osm_sf.df <- opq(bbox = "minnesota") %>%
+    add_osm_feature(key = "shop", value = c("tea", "art", "outdoor")) %>%
+  osmdata_sf()
+
+#Pull the data frame
+shop_points.df <- osm_sf.df$osm_points %>%
+  janitor::clean_names() %>%
+  filter(!is.na(shop)) %>%
+
+#Only retain 'valid' tags
+  dplyr::select(osm_id, name, shop, opening_hours, phone, website, geometry) %>%
+  mutate(shop = str_to_title(shop) %>% as_factor())
+
+```
+
+Column {data-width=2000}
+-----------------------------------------------------------------------
+
+### Chart A
+
+```{r echo = FALSE}
+#Pull levels
+shop_types <- levels(shop_points.df$shop)
+n_types <- length(shop_types)
+
+#Initialize colour pallete
+my_pallete <- colorFactor(viridis_pal(option = "D")(n_types), domain = shop_types)
+
+#Add labels
+shop_label.df <- shop_points.df %>%
+  mutate(
+    text_label = str_c(
+                   name,
+                   "<br/>Store Type: ",
+                   shop,
+                   "<br/>Open Hours: ",
+                   opening_hours,
+                   "<br/>Phone: ",
+                   phone,
+                   "<br/>Website: ",
+                   website
+                 )
+  )
+
+#Call leaflet
+leaflet(data = shop_label.df) %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  addCircleMarkers(
+    color = ~my_pallete(shop_types),
+    label = ~map(text_label, HTML),
+    opacity = 0.6,
+    weight = 3,
+    radius = 3
+  ) %>%
+  addLegend(
+    title = "Store Type",
+    position = "bottomright",
+    colors = viridis_pal(option = "D")(n_types),
+    labels = shop_types
+  )
+
+
+```
+
+Column {data-width=2000}
+-----------------------------------------------------------------------
+
+### Chart B
+
+``` {r error = FALSE, warning = FALSE, message = FALSE, echo = FALSE}
+#Call the ACS API
+options(tigris_use_cache = TRUE)
+
+mn_family.df <- get_acs(
+  geography = "tract",
+  variables = "B19113_001E", #Code for family income in the past 12 months
+  state     = "MN",
+  county    = "Hennepin",
+  year      = 2020,
+  geometry  = TRUE
+)
+
+#Add text label
+mn_family_plotly.df <- mn_family.df %>%
+  mutate(
+    tract      = str_split(NAME, ",") %>%
+                 map_chr(1) %>%
+                 str_remove("Census Tract "),
+    text_label = str_c(
+                  "Tract: ",
+                  tract,
+                  "\nFamily income in the past 12 months: ",
+                  scales::dollar(estimate)
+                 )
+  )
+
+#Generate the ggplot
+family.gg <- ggplot() + 
+  geom_sf(data = mn_family_plotly.df, 
+          aes(fill = estimate, text = text_label),
+          colour = "black", size = 0.1) + 
+  labs(title = "Hennepin County, MN 2020 ACS Median Family Income") + 
+  scale_fill_viridis_c("Median Family Income", labels = scales::dollar) +
+  theme_map() +
+  theme(
+    plot.title   = element_text(size  = 16,
+                                hjust = 0.35),
+    legend.text  = element_text(size = 16),
+    legend.title = element_text(size = 16),
+    legend.position = "topright"
+  )
+
+
+#Display
+ggplotly(family.gg,
+         tooltip = "text",
+         height  = 500,
+         width   = 800) %>%
+    style(hoveron = "fills")
+
+```  
+
+### Chart C
+
+```{r, echo = FALSE, message = FALSE}
+#Import osm data for our desired shop types for figure 1.2
+vice_sf.df <- opq(bbox = "minnesota") %>%
+    add_osm_feature(key = "shop", value = c("cannabis", "tobacco", "alcohol")) %>%
+  osmdata_sf()
+
+#Pull the data frame
+vice_points.df <- vice_sf.df$osm_points %>%
+  janitor::clean_names() %>%
+  filter(!is.na(shop)) %>%
+
+#Only retain 'valid' tags
+  dplyr::select(osm_id, name, shop, opening_hours, phone, website, geometry) %>%
+  mutate(shop = str_to_title(shop) %>% as_factor())
+
+```
+
+```{r echo = FALSE}
+#Pull levels
+shop_types <- levels(vice_points.df$shop)
+n_types <- length(shop_types)
+
+#Initialize colour pallete
+my_pallete <- colorFactor(viridis_pal(option = "D")(n_types), domain = shop_types)
+
+#Add labels
+vice_label.df <- vice_points.df %>%
+  mutate(
+    text_label = str_c(
+                   name,
+                   "<br/>Store Type: ",
+                   shop,
+                   "<br/>Open Hours: ",
+                   opening_hours,
+                   "<br/>Phone: ",
+                   phone,
+                   "<br/>Website: ",
+                   website
+                 )
+  )
+
+#Call leaflet
+leaflet(data = vice_label.df) %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  addCircleMarkers(
+    color = ~my_pallete(shop_types),
+    label = ~map(text_label, HTML),
+    opacity = 0.6,
+    weight = 3,
+    radius = 3
+  ) %>%
+  addLegend(
+    title = "Store Type",
+    position = "bottomright",
+    colors = viridis_pal(option = "D")(n_types),
+    labels = shop_types
+  )
+
+```
+
